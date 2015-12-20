@@ -15,46 +15,53 @@ namespace Swashbuckle.Swagger.XmlComments
         private const string SummaryExpression = "summary";
         private const string PropertyExpression = "/doc/members/member[@name='P:{0}.{1}']";
 
-        private readonly XPathNavigator _navigator;
+        private readonly List<XPathNavigator> _navigators=new List<XPathNavigator>();
 
         public ApplyXmlTypeComments(string xmlCommentsPath)
         {
-            _navigator = new XPathDocument(xmlCommentsPath).CreateNavigator();
+            _navigators.Add(new XPathDocument(xmlCommentsPath).CreateNavigator());
         }
 
         public void Apply(Schema model, ModelFilterContext context)
         {
-            var typeNode = _navigator.SelectSingleNode(
-                String.Format(TypeExpression, context.SystemType.XmlLookupName()));
-
-            if (typeNode != null)
+            foreach (XPathNavigator _navigator in _navigators)
             {
-                var summaryNode = typeNode.SelectSingleNode(SummaryExpression);
-                if (summaryNode != null)
-                    model.description = summaryNode.ExtractContent();
-            }
+                var typeNode = _navigator.SelectSingleNode(
+                 String.Format(TypeExpression, context.SystemType.XmlLookupName()));
 
-            foreach (var entry in model.properties)
-            {
-                var jsonProperty = context.JsonObjectContract.Properties[entry.Key];
-                if (jsonProperty == null) continue;
+                if (typeNode != null)
+                {
+                    var summaryNode = typeNode.SelectSingleNode(SummaryExpression);
+                    if (summaryNode != null)
+                        model.description = summaryNode.ExtractContent();
+                }
 
-                ApplyPropertyComments(entry.Value, jsonProperty.PropertyInfo());
+                foreach (var entry in model.properties)
+                {
+                    var jsonProperty = context.JsonObjectContract.Properties[entry.Key];
+                    if (jsonProperty == null) continue;
+
+                    ApplyPropertyComments(entry.Value, jsonProperty.PropertyInfo());
+                }
             }
+          
         }
 
         private void ApplyPropertyComments(Schema propertySchema, PropertyInfo propertyInfo)
         {
-            if (propertyInfo == null) return;
-
-            var propertyNode = _navigator.SelectSingleNode(
-                String.Format(PropertyExpression, propertyInfo.DeclaringType.XmlLookupName(), propertyInfo.Name));
-            if (propertyNode == null) return;
-
-            var propSummaryNode = propertyNode.SelectSingleNode(SummaryExpression);
-            if (propSummaryNode != null)
+            foreach (XPathNavigator _navigator in _navigators)
             {
-                propertySchema.description = propSummaryNode.ExtractContent();
+                if (propertyInfo == null) return;
+
+                var propertyNode = _navigator.SelectSingleNode(
+                    String.Format(PropertyExpression, propertyInfo.DeclaringType.XmlLookupName(), propertyInfo.Name));
+                if (propertyNode == null) return;
+
+                var propSummaryNode = propertyNode.SelectSingleNode(SummaryExpression);
+                if (propSummaryNode != null)
+                {
+                    propertySchema.description = propSummaryNode.ExtractContent();
+                }
             }
         }
     }
